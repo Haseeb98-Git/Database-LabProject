@@ -1,0 +1,101 @@
+CREATE TABLE User (
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
+    FullName VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) NOT NULL UNIQUE,
+    Password VARCHAR(255) NOT NULL,
+    PhoneNumber VARCHAR(20),
+    UserType ENUM('Admin', 'Organizer', 'Participant', 'Sponsor', 'Judge') NOT NULL,
+    DateRegistered DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Venue (
+    VenueID INT AUTO_INCREMENT PRIMARY KEY,
+    VenueName VARCHAR(100) NOT NULL,
+    Capacity INT,
+    Location VARCHAR(255),
+    AvailabilityStatus BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE Event (
+    EventID INT AUTO_INCREMENT PRIMARY KEY,
+    EventName VARCHAR(100) NOT NULL,
+    EventType ENUM('Tech', 'Business', 'Gaming', 'General') NOT NULL,
+    Description TEXT,
+    Rules TEXT,
+    MaxParticipants INT,
+    RegistrationFee DECIMAL(10, 2),
+    EventDateTime DATETIME,
+    VenueID INT,
+    FOREIGN KEY (VenueID) REFERENCES Venue(VenueID)
+);
+
+CREATE TABLE Team (
+    TeamID INT AUTO_INCREMENT PRIMARY KEY,
+    TeamName VARCHAR(100),
+    LeaderID INT,
+    FOREIGN KEY (LeaderID) REFERENCES User(UserID)
+);
+
+CREATE TABLE Registration (
+    RegistrationID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
+    EventID INT,
+    TeamID INT DEFAULT NULL,
+    RegistrationDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES User(UserID),
+    FOREIGN KEY (EventID) REFERENCES Event(EventID),
+    FOREIGN KEY (TeamID) REFERENCES Team(TeamID)
+);
+
+CREATE TABLE Sponsorship (
+    SponsorshipID INT AUTO_INCREMENT PRIMARY KEY,
+    SponsorID INT,
+    SponsorshipType ENUM('Title', 'Gold', 'Silver', 'Media Partner'),
+    ContractDetails TEXT,
+    AmountPaid DECIMAL(10, 2),
+    BrandingOpportunities TEXT,
+    FOREIGN KEY (SponsorID) REFERENCES User(UserID)
+);
+
+CREATE TABLE Accommodation (
+    AccommodationID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
+    RoomNumber VARCHAR(20),
+    Budget DECIMAL(10, 2),
+    CheckInDate DATE,
+    CheckOutDate DATE,
+    FOREIGN KEY (UserID) REFERENCES User(UserID)
+);
+
+CREATE TABLE Payment (
+    PaymentID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
+    EventID INT DEFAULT NULL,
+    SponsorshipID INT DEFAULT NULL,
+    AmountPaid DECIMAL(10, 2),
+    PaymentDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PaymentMethod ENUM('Online', 'Manual'),
+    FOREIGN KEY (UserID) REFERENCES User(UserID),
+    FOREIGN KEY (EventID) REFERENCES Event(EventID),
+    FOREIGN KEY (SponsorshipID) REFERENCES Sponsorship(SponsorshipID)
+);
+
+CREATE TABLE Judge_Assignment (
+    JudgeAssignmentID INT AUTO_INCREMENT PRIMARY KEY,
+    JudgeID INT,
+    EventID INT,
+    FOREIGN KEY (JudgeID) REFERENCES User(UserID),
+    FOREIGN KEY (EventID) REFERENCES Event(EventID)
+);
+
+CREATE TABLE Score (
+    ScoreID INT AUTO_INCREMENT PRIMARY KEY,
+    JudgeID INT,
+    ParticipantID INT,
+    EventID INT,
+    Round ENUM('Prelims', 'Semi-Finals', 'Finals'),
+    Score DECIMAL(5,2),
+    FOREIGN KEY (JudgeID) REFERENCES User(UserID),
+    FOREIGN KEY (ParticipantID) REFERENCES User(UserID),
+    FOREIGN KEY (EventID) REFERENCES Event(EventID)
+);

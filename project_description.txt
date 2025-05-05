@@ -1,0 +1,65 @@
+Project Description:
+NASCON (National Student Convention) is an annual event that brings together students from
+various universities to participate in different competitions, workshops, and networking sessions.
+The event also includes sponsorship deals, accommodation facilities, venue management, and
+guest speaker sessions. Managing this large-scale event manually is challenging, so the goal of this
+project is to develop a Database Management System that automates and streamlines all
+processes related to event management.
+Project Scope & Functional Modules
+The system will be divided into several interconnected modules:
+1. User Management System
+ Users will have different roles:
+o Admin: Manages the entire system
+o Event Organizers: Handle events, venues, sponsorships, accommodations
+o Participants: Register and participate in events
+o Sponsors: Provide funding and get branding opportunities
+o Judges: Evaluate competitions and assign scores
+ Role-based access using DCL (GRANT & REVOKE privileges)
+2. Event Management & Venue Scheduling
+ Organizers can create and manage different categories of events:
+o Tech Events (Coding, Hackathons, AI Challenges)
+o Business Competitions (Case Studies, Entrepreneurship Challenges)
+o Gaming Tournaments (E-Sports, Console Gaming)
+o General Events (Debates, Photography, Quiz Competitions)
+ Venue Management
+o Create a database of available venues (auditoriums, halls, labs, outdoor spaces)
+o Assign a venue, date, and time slot to each event
+o Ensure no two events overlap at the same venue using SQL constraints
+o Generate venue schedules and provide reports on available spaces
+ Event details include:
+o Event Name, Description, Rules, Max Participants, Registration Fee, Date & Time, Venue
+ Participants can register individually or as a team
+ Schedule event rounds (Prelims, Semi-Finals, Finals)
+ Judges assign scores and declare winners
+3. Sponsorship Management Module
+ Companies/organizations can sponsor NASCON in different categories:
+o Title Sponsor, Gold Sponsor, Silver Sponsor, Media Partner
+ Sponsors can:
+o View available sponsorship packages
+o Sign sponsorship contracts
+
+o Make payments and track their brand promotions
+ Generate reports on total sponsorship funds collected
+4. Accommodation Management Module
+ Participants traveling from other cities can request accommodation
+ System automatically assigns accommodation based on:
+o Availability, Budget, and Number of People
+ Generates room allocation reports
+5. Payments & Finance Management
+ Participants can pay registration fees online or manually
+ Sponsorship payments are tracked
+ Generates financial reports including:
+o Total revenue from registrations
+o Funds received from sponsors
+o Accommodation charges
+6. Judge & Evaluation System
+ Judges are assigned to different events
+ Judges enter scores for participants based on predefined criteria
+ System calculates average scores and ranks participants
+ Winners are automatically declared and displayed on the leaderboard
+7. Reporting & Analytics Module
+ Event participation statistics
+ Venue utilization reports
+ Revenue & sponsorship reports
+ Accommodation occupancy reports
+ Participant demographics

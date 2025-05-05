@@ -1,0 +1,21 @@
+The project will include the following database features:
+1. Basic SQL Queries (10 Marks)
+o Use of SELECT, WHERE, ORDER BY
+o Query to list participants of a specific event
+2. Aggregate Functions & HAVING Clause (10 Marks)
+o Calculate total sponsorship funds using SUM()
+o Get average scores using AVG() and filter with HAVING
+3. Joins for Reports (30 Marks)
+o Generate a report of participants and their assigned accommodations using INNER JOIN
+o Show sponsorship details with sponsor payments using LEFT JOIN
+o Venue scheduling conflicts using JOIN on Event_Schedule
+4. Views, Indexes, & Stored Procedures (20 Marks)
+o Create views for participant lists
+o Index tables for fast searches
+o Use stored procedures for auto-generating event schedules
+5. Triggers & Events (10 Marks)
+o Trigger to automatically mark payment as "Paid" after fee submission
+o Event Scheduler to send reminders for event participation
+6. Hierarchical User Access with DCL (10 Marks)
+o GRANT and REVOKE permissions based on user roles
+7. User Interface (60 Marks)
