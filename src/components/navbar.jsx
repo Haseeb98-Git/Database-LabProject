@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 const Navbar = () => {
   const userData = JSON.parse(localStorage.getItem("nasconUser"));
   const fullName = userData?.fullName;
+  const userType = userData?.userType
 
   return (
     <header className="bg-blue-500 text-white">
@@ -13,7 +14,7 @@ const Navbar = () => {
           <Link to="/events" className="text-white hover:underline">Events</Link>
           <Link to="/register" className="text-white hover:underline">Register</Link>
           {fullName ? (
-            <span className="text-xl bg-blue-700 rounded-2xl">Hello, {fullName}</span>
+            <span className="text-xl border-1 px-3">Hello, {fullName} - {userType}</span>
           ) : (
             <Link to="/login" className="text-white hover:underline">Login</Link>
           )}
