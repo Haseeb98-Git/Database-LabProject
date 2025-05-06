@@ -13,6 +13,9 @@ import Payment from './pages/Payment';
 import FinanceManagement from './pages/FinanceManagement';
 import AccommodationManagement from './pages/AccommodationManagement';
 import ParticipantAccommodation from './pages/ParticipantAccommodation';
+import JudgeAssignment from './pages/JudgeAssignment';
+import ScoreEntry from './pages/ScoreEntry';
+import EventLeaderboard from './pages/EventLeaderboard';
 
 const App = () => {
   return (
@@ -39,6 +42,12 @@ const App = () => {
         <Route path="/admin/accommodation" element={<AccommodationManagement />} />
         <Route path="/organizer/accommodation" element={<AccommodationManagement />} />
         <Route path="/participant/accommodation" element={<ParticipantAccommodation />} />
+        
+        {/* Judge & Evaluation System */}
+        <Route path="/admin/judge-assignment" element={<JudgeAssignment />} />
+        <Route path="/organizer/judge-assignment" element={<JudgeAssignment />} />
+        <Route path="/judge/score-entry" element={<ScoreEntry />} />
+        <Route path="/events/:eventId/leaderboard" element={<EventLeaderboard />} />
         
         {/* Add other routes here */}
       </Routes>

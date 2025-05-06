@@ -164,6 +164,12 @@ const AdminDashboard = ({ data, userData }) => {
         </Link>
       </DashboardCard>
       
+      <DashboardCard title="Judge Assignment">
+        <Link to="/admin/judge-assignment" className="text-blue-600 hover:underline">
+          Assign Judges to Events
+        </Link>
+      </DashboardCard>
+      
       <DashboardCard title="Reports">
         <Link to="/admin/reports" className="text-blue-600 hover:underline">
           View Reports
@@ -199,6 +205,12 @@ const OrganizerDashboard = ({ data, userData }) => {
       <DashboardCard title="Accommodation Management">
         <Link to="/organizer/accommodation" className="text-blue-600 hover:underline">
           Manage Accommodations
+        </Link>
+      </DashboardCard>
+      
+      <DashboardCard title="Judge Assignment">
+        <Link to="/organizer/judge-assignment" className="text-blue-600 hover:underline">
+          Assign Judges to Events
         </Link>
       </DashboardCard>
     </div>
@@ -279,8 +291,8 @@ const JudgeDashboard = ({ data, userData }) => {
       </DashboardCard>
       
       <DashboardCard title="Score Management">
-        <Link to="/judge/scores" className="text-blue-600 hover:underline">
-          Manage Scores
+        <Link to="/judge/score-entry" className="text-blue-600 hover:underline">
+          Enter & Manage Scores
         </Link>
       </DashboardCard>
       

@@ -761,9 +761,9 @@ app.get('/api/finance/reports/payments', (req, res) => {
   });
 });
 
-// ==== JUDGE MANAGEMENT ====
+// ==== JUDGE & EVALUATION SYSTEM ====
 
-// Get judge assignments
+// Get events assigned to a judge
 app.get('/api/judges/:id/assignments', (req, res) => {
   const judgeId = req.params.id;
   const query = `
@@ -780,6 +780,290 @@ app.get('/api/judges/:id/assignments', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     res.json(results);
+  });
+});
+
+// Assign a judge to an event
+app.post('/api/judge-assignments', (req, res) => {
+  const { JudgeID, EventID } = req.body;
+  
+  if (!JudgeID || !EventID) {
+    return res.status(400).json({ error: 'Judge ID and Event ID are required' });
+  }
+  
+  // Check if the user is a judge
+  db.query('SELECT UserType FROM User WHERE UserID = ?', [JudgeID], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (results[0].UserType !== 'Judge') {
+      return res.status(400).json({ error: 'User is not a judge' });
+    }
+    
+    // Check if the assignment already exists
+    db.query(
+      'SELECT * FROM Judge_Assignment WHERE JudgeID = ? AND EventID = ?',
+      [JudgeID, EventID],
+      (err, results) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        
+        if (results.length > 0) {
+          return res.status(400).json({ error: 'Judge is already assigned to this event' });
+        }
+        
+        // Create the assignment
+        const query = 'INSERT INTO Judge_Assignment (JudgeID, EventID) VALUES (?, ?)';
+        db.query(query, [JudgeID, EventID], (err, result) => {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          
+          res.status(201).json({
+            message: 'Judge assigned to event successfully',
+            assignmentId: result.insertId
+          });
+        });
+      }
+    );
+  });
+});
+
+// Remove a judge assignment
+app.delete('/api/judge-assignments/:id', (req, res) => {
+  const assignmentId = req.params.id;
+  
+  db.query(
+    'DELETE FROM Judge_Assignment WHERE JudgeAssignmentID = ?',
+    [assignmentId],
+    (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Judge assignment not found' });
+      }
+      
+      res.json({ message: 'Judge assignment removed successfully' });
+    }
+  );
+});
+
+// Get judges assigned to an event
+app.get('/api/events/:id/judges', (req, res) => {
+  const eventId = req.params.id;
+  const query = `
+    SELECT u.UserID, u.FullName, u.Email, ja.JudgeAssignmentID
+    FROM User u
+    JOIN Judge_Assignment ja ON u.UserID = ja.JudgeID
+    WHERE ja.EventID = ?
+  `;
+  
+  db.query(query, [eventId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get all judges (for admin to assign)
+app.get('/api/judges', (req, res) => {
+  const query = `
+    SELECT UserID, FullName, Email, PhoneNumber
+    FROM User
+    WHERE UserType = 'Judge'
+    ORDER BY FullName
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Submit scores for participants
+app.post('/api/scores', (req, res) => {
+  const { JudgeID, ParticipantID, EventID, Round, Score } = req.body;
+  
+  if (!JudgeID || !ParticipantID || !EventID || !Round || Score === undefined) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  
+  // Validate the score (assuming scores are between 0 and 100)
+  if (Score < 0 || Score > 100) {
+    return res.status(400).json({ error: 'Score must be between 0 and 100' });
+  }
+  
+  // Verify that the judge is assigned to this event
+  db.query(
+    'SELECT * FROM Judge_Assignment WHERE JudgeID = ? AND EventID = ?',
+    [JudgeID, EventID],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (results.length === 0) {
+        return res.status(400).json({ error: 'Judge is not assigned to this event' });
+      }
+      
+      // Verify that the participant is registered for this event
+      db.query(
+        'SELECT * FROM Registration WHERE UserID = ? AND EventID = ?',
+        [ParticipantID, EventID],
+        (err, results) => {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          
+          if (results.length === 0) {
+            return res.status(400).json({ error: 'Participant is not registered for this event' });
+          }
+          
+          // Check if score already exists and update it, or create a new one
+          db.query(
+            'SELECT * FROM Score WHERE JudgeID = ? AND ParticipantID = ? AND EventID = ? AND Round = ?',
+            [JudgeID, ParticipantID, EventID, Round],
+            (err, results) => {
+              if (err) {
+                return res.status(500).json({ error: err.message });
+              }
+              
+              if (results.length > 0) {
+                // Update existing score
+                db.query(
+                  'UPDATE Score SET Score = ? WHERE ScoreID = ?',
+                  [Score, results[0].ScoreID],
+                  (err, result) => {
+                    if (err) {
+                      return res.status(500).json({ error: err.message });
+                    }
+                    
+                    res.json({
+                      message: 'Score updated successfully',
+                      scoreId: results[0].ScoreID
+                    });
+                  }
+                );
+              } else {
+                // Create new score
+                db.query(
+                  'INSERT INTO Score (JudgeID, ParticipantID, EventID, Round, Score) VALUES (?, ?, ?, ?, ?)',
+                  [JudgeID, ParticipantID, EventID, Round, Score],
+                  (err, result) => {
+                    if (err) {
+                      return res.status(500).json({ error: err.message });
+                    }
+                    
+                    res.status(201).json({
+                      message: 'Score submitted successfully',
+                      scoreId: result.insertId
+                    });
+                  }
+                );
+              }
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// Get scores for a participant in an event
+app.get('/api/events/:eventId/participants/:participantId/scores', (req, res) => {
+  const { eventId, participantId } = req.params;
+  
+  const query = `
+    SELECT s.*, u.FullName as JudgeName
+    FROM Score s
+    JOIN User u ON s.JudgeID = u.UserID
+    WHERE s.EventID = ? AND s.ParticipantID = ?
+    ORDER BY s.Round, s.JudgeID
+  `;
+  
+  db.query(query, [eventId, participantId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get all scores submitted by a judge for an event
+app.get('/api/judges/:judgeId/events/:eventId/scores', (req, res) => {
+  const { judgeId, eventId } = req.params;
+  
+  const query = `
+    SELECT s.*, u.FullName as ParticipantName
+    FROM Score s
+    JOIN User u ON s.ParticipantID = u.UserID
+    WHERE s.EventID = ? AND s.JudgeID = ?
+    ORDER BY s.Round, s.ParticipantID
+  `;
+  
+  db.query(query, [eventId, judgeId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get leaderboard for an event
+app.get('/api/events/:eventId/leaderboard', (req, res) => {
+  const eventId = req.params.eventId;
+  const round = req.query.round || 'Finals'; // Default to Finals if not specified
+  
+  // Use the stored procedure to calculate winners
+  db.query('CALL CalculateEventWinners(?, ?)', [eventId, round], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // The stored procedure returns the result as the first element in the results array
+    res.json(results[0]);
+  });
+});
+
+// Check if all judges have submitted their scores
+app.get('/api/events/:eventId/scores/status', (req, res) => {
+  const eventId = req.params.eventId;
+  const round = req.query.round || 'Finals';
+  
+  db.query('CALL CheckAllJudgesScored(?, ?)', [eventId, round], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results[0][0]);
+  });
+});
+
+// Get all scores for a participant in an event with judge details
+app.get('/api/participants/:participantId/events/:eventId/scores', (req, res) => {
+  const { participantId, eventId } = req.params;
+  
+  db.query('CALL GetParticipantScores(?, ?)', [participantId, eventId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results[0]);
   });
 });
 
