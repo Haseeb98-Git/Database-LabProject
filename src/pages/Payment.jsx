@@ -6,13 +6,7 @@ const Payment = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
-  const [formData, setFormData] = useState({
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-    nameOnCard: ""
-  });
-  const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [paymentMethod, setPaymentMethod] = useState("Online");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -37,37 +31,6 @@ const Payment = () => {
     }
   }, [navigate, registrationData, amount]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Basic validation
-    if (name === "cardNumber") {
-      // Only allow digits and limit to 16 characters
-      const sanitizedValue = value.replace(/\D/g, "").slice(0, 16);
-      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-      return;
-    }
-    
-    if (name === "cvv") {
-      // Only allow digits and limit to 3-4 characters
-      const sanitizedValue = value.replace(/\D/g, "").slice(0, 4);
-      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-      return;
-    }
-    
-    if (name === "expiryDate") {
-      // Format as MM/YY
-      let sanitizedValue = value.replace(/\D/g, "");
-      if (sanitizedValue.length > 2) {
-        sanitizedValue = sanitizedValue.slice(0, 2) + "/" + sanitizedValue.slice(2, 4);
-      }
-      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-      return;
-    }
-    
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleMethodChange = (method) => {
     setPaymentMethod(method);
   };
@@ -80,9 +43,6 @@ const Payment = () => {
     try {
       // Simulate payment processing delay
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // In a real app, you would call your payment processing API here
-      // For this demo, we'll simulate a successful payment
       
       // After successful payment, create the registration
       const registrationResponse = await fetch("http://localhost:5000/api/registrations", {
@@ -108,7 +68,7 @@ const Payment = () => {
           UserID: userData.UserID,
           EventID: registrationData.EventID,
           AmountPaid: amount,
-          PaymentMethod: paymentMethod === "credit_card" ? "Online" : "Manual" 
+          PaymentMethod: paymentMethod 
         })
       });
       
@@ -224,150 +184,59 @@ const Payment = () => {
               <div className="flex flex-wrap gap-4 mb-6">
                 <button
                   type="button"
-                  onClick={() => handleMethodChange("credit_card")}
+                  onClick={() => handleMethodChange("Online")}
                   className={`px-4 py-2 rounded-lg border ${
-                    paymentMethod === "credit_card"
+                    paymentMethod === "Online"
                       ? "bg-blue-50 border-blue-500 text-blue-700"
                       : "border-gray-300"
                   }`}
                 >
-                  Credit/Debit Card
+                  Online Payment
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleMethodChange("bank_transfer")}
+                  onClick={() => handleMethodChange("Manual")}
                   className={`px-4 py-2 rounded-lg border ${
-                    paymentMethod === "bank_transfer"
+                    paymentMethod === "Manual"
                       ? "bg-blue-50 border-blue-500 text-blue-700"
                       : "border-gray-300"
                   }`}
                 >
-                  Bank Transfer
+                  Manual Payment
                 </button>
               </div>
               
-              {paymentMethod === "credit_card" ? (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Card Number
-                    </label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      value={formData.cardNumber}
-                      onChange={handleInputChange}
-                      placeholder="1234 5678 9012 3456"
-                      className="w-full p-2 border rounded"
-                      required
-                    />
+              <div className="mt-6">
+                <p className="mb-4 text-gray-700">
+                  {paymentMethod === "Online" 
+                    ? "Click below to complete your online payment. You will be registered automatically." 
+                    : "Click below to proceed with manual payment. You will be registered and can complete payment later."}
+                </p>
+                
+                {error && (
+                  <div className="p-3 bg-red-50 text-red-600 rounded mb-4">
+                    {error}
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        name="expiryDate"
-                        value={formData.expiryDate}
-                        onChange={handleInputChange}
-                        placeholder="MM/YY"
-                        className="w-full p-2 border rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        CVV
-                      </label>
-                      <input
-                        type="password"
-                        name="cvv"
-                        value={formData.cvv}
-                        onChange={handleInputChange}
-                        placeholder="123"
-                        className="w-full p-2 border rounded"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name on Card
-                    </label>
-                    <input
-                      type="text"
-                      name="nameOnCard"
-                      value={formData.nameOnCard}
-                      onChange={handleInputChange}
-                      placeholder="John Doe"
-                      className="w-full p-2 border rounded"
-                      required
-                    />
-                  </div>
-                  
-                  {error && (
-                    <div className="p-3 bg-red-50 text-red-600 rounded">
-                      {error}
-                    </div>
+                )}
+                
+                <button
+                  onClick={handleSubmit}
+                  className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    `Complete ${paymentMethod} Payment (PKR ${amount})`
                   )}
-                  
-                  <button
-                    type="submit"
-                    className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 flex items-center justify-center"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      `Pay PKR ${amount}`
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 rounded">
-                    <h4 className="font-medium mb-2">Bank Transfer Instructions</h4>
-                    <p className="text-sm text-gray-700 mb-2">
-                      Please transfer the amount to the following bank account:
-                    </p>
-                    <div className="text-sm">
-                      <p><span className="font-medium">Bank:</span> National Bank of Pakistan</p>
-                      <p><span className="font-medium">Account Name:</span> NASCON Event Management</p>
-                      <p><span className="font-medium">Account Number:</span> 0123-4567-8901-2345</p>
-                      <p><span className="font-medium">Reference:</span> EV-{registrationData?.EventID}-{userData?.UserID}</p>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600">
-                    After transferring the amount, our team will verify your payment and confirm your registration within 24 hours.
-                  </p>
-                  
-                  {error && (
-                    <div className="p-3 bg-red-50 text-red-600 rounded">
-                      {error}
-                    </div>
-                  )}
-                  
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-                    disabled={loading}
-                  >
-                    {loading ? "Processing..." : "Confirm Bank Transfer"}
-                  </button>
-                </div>
-              )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

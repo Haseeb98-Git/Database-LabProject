@@ -10,6 +10,7 @@ import EventRegistration from './pages/EventRegistration';
 import Events from './pages/Events';
 import EventDetails from './pages/EventDetails';
 import Payment from './pages/Payment';
+import FinanceManagement from './pages/FinanceManagement';
 
 const App = () => {
   return (
@@ -27,6 +28,10 @@ const App = () => {
         <Route path="/organizer/events" element={<EventManagement />} />
         <Route path="/event-registration/:eventId" element={<EventRegistration />} />
         <Route path="/payment" element={<Payment />} />
+        
+        {/* Finance Management */}
+        <Route path="/admin/finance" element={<FinanceManagement />} />
+        <Route path="/organizer/finance" element={<FinanceManagement />} />
         
         {/* Add other routes here */}
       </Routes>

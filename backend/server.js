@@ -3,6 +3,8 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -19,15 +21,73 @@ const db = mysql.createConnection({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT
+  port: process.env.DB_PORT,
+  multipleStatements: true // Enable multiple statements
 });
 
 db.connect((err) => {
   if (err) {
-    console.error('Error connecting to database:', err);
+    console.error('Error connecting to MySQL database:', err);
     return;
   }
-  console.log('Connected to the MySQL database');
+  console.log('Connected to MySQL database');
+  
+  // Load and execute stored procedures and triggers
+  const storedProceduresFile = path.join(__dirname, 'stored_procedures.sql');
+  
+  if (fs.existsSync(storedProceduresFile)) {
+    const storedProceduresSQL = fs.readFileSync(storedProceduresFile, 'utf8');
+    
+    // Execute the SQL file as a whole for proper handling of all statements
+    db.query(storedProceduresSQL, (err) => {
+      if (err) {
+        console.error('Error initializing stored procedures:', err);
+      } else {
+        console.log('Stored procedures and triggers initialization complete');
+      }
+    });
+    
+    // Set up daily schedule to run event reminders procedure
+    // This runs the procedure once when the server starts and then daily at midnight
+    const runEventReminders = () => {
+      db.query('CALL GenerateEventReminders()', (err, results) => {
+        if (err) {
+          console.error('Failed to run event reminders:', err);
+        } else {
+          console.log('Event reminders generated successfully');
+        }
+      });
+    };
+    
+    // Run once at startup
+    runEventReminders();
+    
+    // Schedule to run daily at midnight
+    const scheduleReminders = () => {
+      const now = new Date();
+      const night = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1, // tomorrow
+        0, 0, 0 // at 00:00:00
+      );
+      const msUntilMidnight = night.getTime() - now.getTime();
+      
+      // Schedule first run at next midnight
+      setTimeout(() => {
+        runEventReminders();
+        
+        // Then schedule to run every 24 hours
+        setInterval(runEventReminders, 24 * 60 * 60 * 1000);
+      }, msUntilMidnight);
+      
+      console.log(`Scheduled reminder generation to run in ${Math.round(msUntilMidnight / 1000 / 60)} minutes`);
+    };
+    
+    scheduleReminders();
+  } else {
+    console.log('No stored procedures file found');
+  }
 });
 
 // ==== EVENT MANAGEMENT ====
@@ -453,6 +513,250 @@ app.get('/api/users/:id/payments', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    res.json(results);
+  });
+});
+
+// ==== FINANCE MANAGEMENT ====
+
+// Get financial summary
+app.get('/api/finance/summary', (req, res) => {
+  // Query 1: Total revenue
+  const revenueQuery = `
+    SELECT SUM(AmountPaid) as totalRevenue
+    FROM Payment
+  `;
+  
+  // Query 2: Total from registration fees
+  const registrationQuery = `
+    SELECT SUM(p.AmountPaid) as totalRegistrationFees
+    FROM Payment p
+    WHERE p.EventID IS NOT NULL
+  `;
+  
+  // Query 3: Total from sponsorships
+  const sponsorshipQuery = `
+    SELECT SUM(p.AmountPaid) as totalSponsorships
+    FROM Payment p
+    WHERE p.SponsorshipID IS NOT NULL
+  `;
+  
+  // Query 4: Total payments count
+  const paymentsCountQuery = `
+    SELECT COUNT(*) as totalPayments
+    FROM Payment
+  `;
+  
+  // Run all queries in parallel
+  db.query(revenueQuery, (err, revenueResults) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error fetching total revenue: ' + err.message });
+    }
+    
+    db.query(registrationQuery, (err, registrationResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching registration fees: ' + err.message });
+      }
+      
+      db.query(sponsorshipQuery, (err, sponsorshipResults) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error fetching sponsorship amounts: ' + err.message });
+        }
+        
+        db.query(paymentsCountQuery, (err, countResults) => {
+          if (err) {
+            return res.status(500).json({ error: 'Error fetching payment count: ' + err.message });
+          }
+          
+          // Combine all results
+          const summary = {
+            totalRevenue: revenueResults[0].totalRevenue || 0,
+            totalRegistrationFees: registrationResults[0].totalRegistrationFees || 0,
+            totalSponsorships: sponsorshipResults[0].totalSponsorships || 0,
+            totalAccommodation: 0, // Not implemented in this schema
+            totalPayments: countResults[0].totalPayments || 0
+          };
+          
+          res.json(summary);
+        });
+      });
+    });
+  });
+});
+
+// Get revenue report
+app.get('/api/finance/reports/revenue', (req, res) => {
+  // Get date range from query parameters
+  const { startDate, endDate, period } = req.query;
+  let dateFilter = '';
+  
+  if (startDate && endDate) {
+    dateFilter = `WHERE p.PaymentDate BETWEEN '${startDate}' AND '${endDate}'`;
+  } else if (period) {
+    if (period === 'this_month') {
+      dateFilter = 'WHERE MONTH(p.PaymentDate) = MONTH(CURRENT_DATE()) AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    } else if (period === 'this_year') {
+      dateFilter = 'WHERE YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    }
+  }
+  
+  // Query for revenue summary by category
+  const query = `
+    SELECT 
+      CASE 
+        WHEN p.EventID IS NOT NULL THEN 'Event Registrations' 
+        WHEN p.SponsorshipID IS NOT NULL THEN 'Sponsorships'
+        ELSE 'Other'
+      END as category,
+      SUM(p.AmountPaid) as amount
+    FROM Payment p
+    ${dateFilter}
+    GROUP BY category
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error generating revenue report: ' + err.message });
+    }
+    
+    // Calculate percentages
+    const total = results.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    
+    const reportData = results.map(item => ({
+      category: item.category,
+      amount: item.amount || 0,
+      percentage: total > 0 ? Math.round((item.amount / total) * 100) : 0
+    }));
+    
+    res.json(reportData);
+  });
+});
+
+// Get event revenue report
+app.get('/api/finance/reports/events', (req, res) => {
+  // Get date range from query parameters
+  const { startDate, endDate, period } = req.query;
+  let dateFilter = '';
+  
+  if (startDate && endDate) {
+    dateFilter = `AND p.PaymentDate BETWEEN '${startDate}' AND '${endDate}'`;
+  } else if (period) {
+    if (period === 'this_month') {
+      dateFilter = 'AND MONTH(p.PaymentDate) = MONTH(CURRENT_DATE()) AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    } else if (period === 'this_year') {
+      dateFilter = 'AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    }
+  }
+  
+  // Query for event revenue
+  const query = `
+    SELECT 
+      e.EventID,
+      e.EventName,
+      e.EventType,
+      e.RegistrationFee,
+      COUNT(DISTINCT p.UserID) as ParticipantCount,
+      SUM(p.AmountPaid) as TotalRevenue
+    FROM Event e
+    JOIN Payment p ON e.EventID = p.EventID
+    WHERE p.EventID IS NOT NULL ${dateFilter}
+    GROUP BY e.EventID, e.EventName
+    ORDER BY TotalRevenue DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error generating event revenue report: ' + err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get sponsorship report
+app.get('/api/finance/reports/sponsorships', (req, res) => {
+  // Get date range from query parameters
+  const { startDate, endDate, period } = req.query;
+  let dateFilter = '';
+  
+  if (startDate && endDate) {
+    dateFilter = `AND p.PaymentDate BETWEEN '${startDate}' AND '${endDate}'`;
+  } else if (period) {
+    if (period === 'this_month') {
+      dateFilter = 'AND MONTH(p.PaymentDate) = MONTH(CURRENT_DATE()) AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    } else if (period === 'this_year') {
+      dateFilter = 'AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    }
+  }
+  
+  // Query for sponsorship data
+  const query = `
+    SELECT 
+      s.SponsorshipID,
+      u.FullName as SponsorName,
+      s.SponsorshipType,
+      p.AmountPaid,
+      p.PaymentDate
+    FROM Sponsorship s
+    JOIN User u ON s.SponsorID = u.UserID
+    JOIN Payment p ON s.SponsorshipID = p.SponsorshipID
+    WHERE p.SponsorshipID IS NOT NULL ${dateFilter}
+    ORDER BY p.PaymentDate DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error generating sponsorship report: ' + err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
+// Get payment transactions report
+app.get('/api/finance/reports/payments', (req, res) => {
+  // Get date range from query parameters
+  const { startDate, endDate, period } = req.query;
+  let dateFilter = '';
+  
+  if (startDate && endDate) {
+    dateFilter = `WHERE p.PaymentDate BETWEEN '${startDate}' AND '${endDate}'`;
+  } else if (period) {
+    if (period === 'this_month') {
+      dateFilter = 'WHERE MONTH(p.PaymentDate) = MONTH(CURRENT_DATE()) AND YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    } else if (period === 'this_year') {
+      dateFilter = 'WHERE YEAR(p.PaymentDate) = YEAR(CURRENT_DATE())';
+    }
+  }
+  
+  // Query for payment transactions
+  const query = `
+    SELECT 
+      p.PaymentID,
+      u.FullName as UserName,
+      CASE 
+        WHEN p.EventID IS NOT NULL THEN 'Event Registration' 
+        WHEN p.SponsorshipID IS NOT NULL THEN 'Sponsorship'
+        ELSE 'Other'
+      END as PaymentType,
+      e.EventName,
+      s.SponsorshipType,
+      p.AmountPaid,
+      p.PaymentMethod,
+      p.PaymentDate
+    FROM Payment p
+    JOIN User u ON p.UserID = u.UserID
+    LEFT JOIN Event e ON p.EventID = e.EventID
+    LEFT JOIN Sponsorship s ON p.SponsorshipID = s.SponsorshipID
+    ${dateFilter}
+    ORDER BY p.PaymentDate DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error generating payment transactions report: ' + err.message });
+    }
+    
     res.json(results);
   });
 });

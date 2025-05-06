@@ -159,12 +159,15 @@ const AdminDashboard = ({ data }) => {
         </Link>
       </DashboardCard>
       
+      <DashboardCard title="Finance Management">
+        <Link to="/admin/finance" className="text-blue-600 hover:underline">
+          Financial Reports & Analytics
+        </Link>
+      </DashboardCard>
+      
       <DashboardCard title="Reports">
         <Link to="/admin/reports/events" className="block text-blue-600 hover:underline mb-1">
           Event Reports
-        </Link>
-        <Link to="/admin/reports/finance" className="block text-blue-600 hover:underline mb-1">
-          Financial Reports
         </Link>
         <Link to="/admin/reports/participants" className="block text-blue-600 hover:underline">
           Participant Reports
@@ -194,6 +197,12 @@ const OrganizerDashboard = ({ data }) => {
       <DashboardCard title="Judge Assignment">
         <Link to="/organizer/judges" className="text-blue-600 hover:underline">
           Assign Judges
+        </Link>
+      </DashboardCard>
+      
+      <DashboardCard title="Finance Management">
+        <Link to="/organizer/finance" className="text-blue-600 hover:underline">
+          Financial Reports & Analytics
         </Link>
       </DashboardCard>
       
