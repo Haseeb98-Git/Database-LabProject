@@ -63,3 +63,4 @@ o Accommodation charges
  Revenue & sponsorship reports
  Accommodation occupancy reports
  Participant demographics
+
