@@ -470,6 +470,25 @@ app.get('/api/users/:id/registrations', (req, res) => {
   });
 });
 
+// Get all registrations for an event
+app.get('/api/events/:id/registrations', (req, res) => {
+  const eventId = req.params.id;
+  const query = `
+    SELECT r.*, u.FullName, u.Email, u.PhoneNumber
+    FROM Registration r
+    JOIN User u ON r.UserID = u.UserID
+    WHERE r.EventID = ?
+    ORDER BY r.RegistrationDate DESC
+  `;
+  
+  db.query(query, [eventId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
 // ==== PAYMENT MANAGEMENT ====
 
 // Create a new payment

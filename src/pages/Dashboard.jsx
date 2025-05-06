@@ -218,33 +218,116 @@ const OrganizerDashboard = ({ data, userData }) => {
 };
 
 const ParticipantDashboard = ({ data, userData }) => {
+  const [registeredEvents, setRegisteredEvents] = useState([]);
+  const [loadingRegistrations, setLoadingRegistrations] = useState(true);
+  
+  useEffect(() => {
+    const fetchRegistrations = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/users/${userData.UserID}/registrations`);
+        if (response.ok) {
+          const data = await response.json();
+          setRegisteredEvents(data);
+        } else {
+          console.error('Failed to fetch registrations');
+        }
+      } catch (error) {
+        console.error('Error fetching registrations:', error);
+      } finally {
+        setLoadingRegistrations(false);
+      }
+    };
+    
+    fetchRegistrations();
+  }, [userData]);
+  
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <DashboardCard title="My Registrations">
-        <p className="mb-2">{data.registrations?.length || 0} Events Registered</p>
-        <Link to="/participant/registrations" className="text-blue-600 hover:underline">
-          View My Registrations
-        </Link>
-      </DashboardCard>
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <DashboardCard title="My Registrations">
+          <p className="mb-2">{registeredEvents.length || 0} Events Registered</p>
+          <Link to="/participant/registrations" className="text-blue-600 hover:underline">
+            View My Registrations
+          </Link>
+        </DashboardCard>
+        
+        <DashboardCard title="Available Events">
+          <p className="mb-2">{data.events?.length || 0} Events Available</p>
+          <Link to="/events" className="text-blue-600 hover:underline">
+            Browse Events
+          </Link>
+        </DashboardCard>
+        
+        <DashboardCard title="My Teams">
+          <Link to="/participant/teams" className="text-blue-600 hover:underline">
+            Manage My Teams
+          </Link>
+        </DashboardCard>
+        
+        <DashboardCard title="Accommodation">
+          <Link to="/participant/accommodation" className="text-blue-600 hover:underline">
+            Request Accommodation
+          </Link>
+        </DashboardCard>
+      </div>
       
-      <DashboardCard title="Available Events">
-        <p className="mb-2">{data.events?.length || 0} Events Available</p>
-        <Link to="/events" className="text-blue-600 hover:underline">
-          Browse Events
-        </Link>
-      </DashboardCard>
+      {/* Show registered events */}
+      {registeredEvents.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-xl font-semibold mb-4 border-b pb-2">My Registered Events</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {registeredEvents.map(event => (
+                  <tr key={event.RegistrationID}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{event.EventName}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {event.EventType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(event.EventDateTime).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <Link to={`/event-details/${event.EventID}`} className="text-blue-600 hover:underline">
+                        View Details
+                      </Link>
+                      <Link to={`/events/${event.EventID}/leaderboard`} className="text-blue-600 hover:underline ml-4">
+                        View Leaderboard
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       
-      <DashboardCard title="My Teams">
-        <Link to="/participant/teams" className="text-blue-600 hover:underline">
-          Manage My Teams
-        </Link>
-      </DashboardCard>
+      {loadingRegistrations && (
+        <div className="text-center py-4">
+          <p>Loading your registrations...</p>
+        </div>
+      )}
       
-      <DashboardCard title="Accommodation">
-        <Link to="/participant/accommodation" className="text-blue-600 hover:underline">
-          Request Accommodation
-        </Link>
-      </DashboardCard>
+      {!loadingRegistrations && registeredEvents.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-700">
+            You haven't registered for any events yet. Browse available events to register.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

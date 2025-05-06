@@ -16,6 +16,7 @@ import ParticipantAccommodation from './pages/ParticipantAccommodation';
 import JudgeAssignment from './pages/JudgeAssignment';
 import ScoreEntry from './pages/ScoreEntry';
 import EventLeaderboard from './pages/EventLeaderboard';
+import EventParticipants from './pages/EventParticipants';
 
 const App = () => {
   return (
@@ -48,6 +49,7 @@ const App = () => {
         <Route path="/organizer/judge-assignment" element={<JudgeAssignment />} />
         <Route path="/judge/score-entry" element={<ScoreEntry />} />
         <Route path="/events/:eventId/leaderboard" element={<EventLeaderboard />} />
+        <Route path="/events/:eventId/participants" element={<EventParticipants />} />
         
         {/* Add other routes here */}
       </Routes>

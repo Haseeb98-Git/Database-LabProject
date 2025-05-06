@@ -11,6 +11,7 @@ const EventDetails = () => {
   const [registrationCount, setRegistrationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isRegistered, setIsRegistered] = useState(false);
   
   const userData = JSON.parse(localStorage.getItem("nasconUser"));
 
@@ -45,6 +46,15 @@ const EventDetails = () => {
           const countData = await countResponse.json();
           setRegistrationCount(countData.count);
         }
+        
+        // Check if the user is already registered for this event
+        if (userData && userData.userType === "Participant") {
+          const registrationCheckResponse = await fetch(`http://localhost:5000/api/events/${eventId}/registrations/${userData.UserID}`);
+          if (registrationCheckResponse.ok) {
+            const registrationData = await registrationCheckResponse.json();
+            setIsRegistered(registrationData && !registrationData.error);
+          }
+        }
       } catch (error) {
         console.error("Error fetching event details:", error);
         setError("Event not found or could not be loaded.");
@@ -54,7 +64,7 @@ const EventDetails = () => {
     };
     
     fetchEventDetails();
-  }, [eventId]);
+  }, [eventId, userData]);
 
   if (loading) {
     return (
@@ -135,13 +145,17 @@ const EventDetails = () => {
                 </div>
                 
                 <div className="mt-4 md:mt-0">
-                  {userData?.userType === "Participant" ? (
+                  {userData?.userType === "Participant" && !isRegistered ? (
                     <button
                       onClick={handleRegisterClick}
                       className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
                     >
                       Register Now
                     </button>
+                  ) : userData?.userType === "Participant" && isRegistered ? (
+                    <span className="bg-green-100 text-green-800 px-6 py-2 rounded font-medium">
+                      Already Registered
+                    </span>
                   ) : !userData ? (
                     <button
                       onClick={handleRegisterClick}
@@ -163,7 +177,7 @@ const EventDetails = () => {
                     <p className="text-gray-700 whitespace-pre-line">{event.Rules || "No rules specified."}</p>
                   </div>
                   
-                  <div className="mt-6">
+                  <div className="mt-6 space-x-4">
                     <Link 
                       to={`/events/${event.EventID}/leaderboard`}
                       className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
@@ -173,6 +187,18 @@ const EventDetails = () => {
                         <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </Link>
+                    
+                    {userData && (userData.userType === 'Admin' || userData.userType === 'Organizer' || userData.userType === 'Judge') && (
+                      <Link 
+                        to={`/events/${event.EventID}/participants`}
+                        className="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                      >
+                        View Participants
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                        </svg>
+                      </Link>
+                    )}
                   </div>
                 </div>
                 

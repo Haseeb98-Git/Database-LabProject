@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
 import { toast } from '../utils/notifications';
 import Navbar from '../components/navbar';
@@ -210,20 +210,29 @@ const ScoreEntry = () => {
                     {new Date(selectedEvent.EventDateTime).toLocaleString()} - {selectedEvent.EventType}
                   </p>
                   
-                  <div className="mb-6">
-                    <label className="block text-gray-700 font-medium mb-2" htmlFor="round">
-                      Competition Round
-                    </label>
-                    <select
-                      id="round"
-                      className="w-full md:w-1/3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={round}
-                      onChange={handleRoundChange}
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2" htmlFor="round">
+                        Competition Round
+                      </label>
+                      <select
+                        id="round"
+                        className="w-full md:w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={round}
+                        onChange={handleRoundChange}
+                      >
+                        <option value="Prelims">Preliminaries</option>
+                        <option value="Semi-Finals">Semi-Finals</option>
+                        <option value="Finals">Finals</option>
+                      </select>
+                    </div>
+                    
+                    <Link
+                      to={`/events/${selectedEvent.EventID}/participants`}
+                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
                     >
-                      <option value="Prelims">Preliminaries</option>
-                      <option value="Semi-Finals">Semi-Finals</option>
-                      <option value="Finals">Finals</option>
-                    </select>
+                      View All Participants
+                    </Link>
                   </div>
                   
                   {participants.length === 0 ? (
