@@ -11,6 +11,8 @@ import Events from './pages/Events';
 import EventDetails from './pages/EventDetails';
 import Payment from './pages/Payment';
 import FinanceManagement from './pages/FinanceManagement';
+import AccommodationManagement from './pages/AccommodationManagement';
+import ParticipantAccommodation from './pages/ParticipantAccommodation';
 
 const App = () => {
   return (
@@ -32,6 +34,11 @@ const App = () => {
         {/* Finance Management */}
         <Route path="/admin/finance" element={<FinanceManagement />} />
         <Route path="/organizer/finance" element={<FinanceManagement />} />
+        
+        {/* Accommodation Management */}
+        <Route path="/admin/accommodation" element={<AccommodationManagement />} />
+        <Route path="/organizer/accommodation" element={<AccommodationManagement />} />
+        <Route path="/participant/accommodation" element={<ParticipantAccommodation />} />
         
         {/* Add other routes here */}
       </Routes>

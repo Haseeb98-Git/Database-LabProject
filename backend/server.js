@@ -783,6 +783,256 @@ app.get('/api/judges/:id/assignments', (req, res) => {
   });
 });
 
+// ==== ACCOMMODATION MANAGEMENT ====
+
+// Get all accommodations (admin access)
+app.get('/api/accommodations', (req, res) => {
+  const query = `
+    SELECT a.*, u.FullName, u.Email, u.PhoneNumber
+    FROM Accommodation a
+    JOIN User u ON a.UserID = u.UserID
+    ORDER BY a.CheckInDate ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get accommodation details for a specific user
+app.get('/api/users/:id/accommodation', (req, res) => {
+  const userId = req.params.id;
+  const query = `
+    SELECT * FROM Accommodation 
+    WHERE UserID = ?
+  `;
+  
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get a specific accommodation by ID
+app.get('/api/accommodations/:id', (req, res) => {
+  const accommodationId = req.params.id;
+  const query = `
+    SELECT a.*, u.FullName, u.Email, u.PhoneNumber 
+    FROM Accommodation a
+    JOIN User u ON a.UserID = u.UserID
+    WHERE a.AccommodationID = ?
+  `;
+  
+  db.query(query, [accommodationId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Accommodation not found' });
+    }
+    
+    res.json(results[0]);
+  });
+});
+
+// Request new accommodation
+app.post('/api/accommodations', (req, res) => {
+  const { UserID, Budget, CheckInDate, CheckOutDate } = req.body;
+  
+  // Validate required fields
+  if (!UserID || !CheckInDate || !CheckOutDate) {
+    return res.status(400).json({ error: 'UserID, check-in date, and check-out date are required' });
+  }
+  
+  // Validate dates
+  if (new Date(CheckOutDate) <= new Date(CheckInDate)) {
+    return res.status(400).json({ error: 'Check-out date must be after check-in date' });
+  }
+  
+  // Check if user already has an accommodation request
+  const checkQuery = 'SELECT * FROM Accommodation WHERE UserID = ?';
+  db.query(checkQuery, [UserID], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (results.length > 0) {
+      return res.status(400).json({ error: 'User already has an accommodation request' });
+    }
+    
+    // Insert new accommodation request
+    const insertQuery = `
+      INSERT INTO Accommodation (UserID, Budget, CheckInDate, CheckOutDate)
+      VALUES (?, ?, ?, ?)
+    `;
+    
+    db.query(insertQuery, [UserID, Budget, CheckInDate, CheckOutDate], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.status(201).json({
+        message: 'Accommodation request submitted successfully',
+        accommodationId: result.insertId
+      });
+    });
+  });
+});
+
+// Update accommodation details (admin only)
+app.put('/api/accommodations/:id', (req, res) => {
+  const accommodationId = req.params.id;
+  const { RoomNumber, Budget, CheckInDate, CheckOutDate } = req.body;
+  
+  // Validate required fields
+  if (!CheckInDate || !CheckOutDate) {
+    return res.status(400).json({ error: 'Check-in date and check-out date are required' });
+  }
+  
+  // Validate dates
+  if (new Date(CheckOutDate) <= new Date(CheckInDate)) {
+    return res.status(400).json({ error: 'Check-out date must be after check-in date' });
+  }
+  
+  // Update accommodation
+  const updateQuery = `
+    UPDATE Accommodation
+    SET 
+      RoomNumber = ?,
+      Budget = ?,
+      CheckInDate = ?,
+      CheckOutDate = ?
+    WHERE AccommodationID = ?
+  `;
+  
+  db.query(updateQuery, [RoomNumber, Budget, CheckInDate, CheckOutDate, accommodationId], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Accommodation not found' });
+    }
+    
+    res.json({
+      message: 'Accommodation updated successfully',
+      accommodationId: accommodationId
+    });
+  });
+});
+
+// Delete accommodation request
+app.delete('/api/accommodations/:id', (req, res) => {
+  const accommodationId = req.params.id;
+  
+  const deleteQuery = 'DELETE FROM Accommodation WHERE AccommodationID = ?';
+  db.query(deleteQuery, [accommodationId], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Accommodation not found' });
+    }
+    
+    res.json({ message: 'Accommodation request deleted successfully' });
+  });
+});
+
+// Generate accommodation report
+app.get('/api/reports/accommodations', (req, res) => {
+  const query = `
+    SELECT a.*, u.FullName, u.Email, u.PhoneNumber,
+    DATEDIFF(a.CheckOutDate, a.CheckInDate) as StayDuration
+    FROM Accommodation a
+    JOIN User u ON a.UserID = u.UserID
+    ORDER BY a.CheckInDate ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Calculate statistics
+    const totalRequests = results.length;
+    const assignedRooms = results.filter(item => item.RoomNumber !== null && item.RoomNumber !== '').length;
+    const pendingRequests = totalRequests - assignedRooms;
+    
+    // Group by check-in date
+    const groupedByDate = {};
+    results.forEach(item => {
+      const date = new Date(item.CheckInDate).toISOString().split('T')[0];
+      if (!groupedByDate[date]) {
+        groupedByDate[date] = [];
+      }
+      groupedByDate[date].push(item);
+    });
+    
+    res.json({
+      statistics: {
+        totalRequests,
+        assignedRooms,
+        pendingRequests,
+        occupancyRate: totalRequests > 0 ? Math.round((assignedRooms / totalRequests) * 100) : 0
+      },
+      accommodations: results,
+      groupedByDate: groupedByDate
+    });
+  });
+});
+
+// Search accommodations
+app.get('/api/accommodations/search', (req, res) => {
+  const { name, roomNumber, checkInDate, status } = req.query;
+  
+  let query = `
+    SELECT a.*, u.FullName, u.Email, u.PhoneNumber
+    FROM Accommodation a
+    JOIN User u ON a.UserID = u.UserID
+    WHERE 1=1
+  `;
+  
+  const params = [];
+  
+  if (name) {
+    query += ` AND u.FullName LIKE ?`;
+    params.push(`%${name}%`);
+  }
+  
+  if (roomNumber) {
+    query += ` AND a.RoomNumber = ?`;
+    params.push(roomNumber);
+  }
+  
+  if (checkInDate) {
+    query += ` AND a.CheckInDate = ?`;
+    params.push(checkInDate);
+  }
+  
+  if (status === 'assigned') {
+    query += ` AND a.RoomNumber IS NOT NULL AND a.RoomNumber != ''`;
+  } else if (status === 'pending') {
+    query += ` AND (a.RoomNumber IS NULL OR a.RoomNumber = '')`;
+  }
+  
+  query += ` ORDER BY a.CheckInDate ASC`;
+  
+  db.query(query, params, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    res.json(results);
+  });
+});
+
 // ==== USER MANAGEMENT ====
 
 // User Registration

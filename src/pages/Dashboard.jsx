@@ -92,9 +92,9 @@ const Dashboard = () => {
     
     switch (userData.userType) {
       case 'Admin':
-        return <AdminDashboard data={dashboardData} />;
+        return <AdminDashboard data={dashboardData} userData={userData} />;
       case 'Organizer':
-        return <OrganizerDashboard data={dashboardData} />;
+        return <OrganizerDashboard data={dashboardData} userData={userData} />;
       case 'Participant':
         return <ParticipantDashboard data={dashboardData} userData={userData} />;
       case 'Sponsor':
@@ -129,18 +129,18 @@ const Dashboard = () => {
 };
 
 // Dashboard components for different user types
-const AdminDashboard = ({ data }) => {
+const AdminDashboard = ({ data, userData }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <DashboardCard title="Events Management">
-        <p className="mb-2">{data.events?.length || 0} Total Events</p>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <DashboardCard title="Event Management">
+        <p className="mb-2">{data.events?.length || 0} Events Total</p>
         <Link to="/admin/events" className="text-blue-600 hover:underline">
           Manage Events
         </Link>
       </DashboardCard>
       
       <DashboardCard title="Venue Management">
-        <p className="mb-2">{data.venues?.length || 0} Available Venues</p>
+        <p className="mb-2">{data.venues?.length || 0} Venues Available</p>
         <Link to="/admin/venues" className="text-blue-600 hover:underline">
           Manage Venues
         </Link>
@@ -152,63 +152,53 @@ const AdminDashboard = ({ data }) => {
         </Link>
       </DashboardCard>
       
-      <DashboardCard title="Sponsorships">
-        <p className="mb-2">{data.sponsorships?.length || 0} Active Sponsorships</p>
-        <Link to="/admin/sponsorships" className="text-blue-600 hover:underline">
-          Manage Sponsorships
+      <DashboardCard title="Finance">
+        <Link to="/admin/finance" className="text-blue-600 hover:underline">
+          Financial Dashboard
         </Link>
       </DashboardCard>
       
-      <DashboardCard title="Finance Management">
-        <Link to="/admin/finance" className="text-blue-600 hover:underline">
-          Financial Reports & Analytics
+      <DashboardCard title="Accommodation Management">
+        <Link to="/admin/accommodation" className="text-blue-600 hover:underline">
+          Manage Accommodations
         </Link>
       </DashboardCard>
       
       <DashboardCard title="Reports">
-        <Link to="/admin/reports/events" className="block text-blue-600 hover:underline mb-1">
-          Event Reports
-        </Link>
-        <Link to="/admin/reports/participants" className="block text-blue-600 hover:underline">
-          Participant Reports
+        <Link to="/admin/reports" className="text-blue-600 hover:underline">
+          View Reports
         </Link>
       </DashboardCard>
     </div>
   );
 };
 
-const OrganizerDashboard = ({ data }) => {
+const OrganizerDashboard = ({ data, userData }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <DashboardCard title="Events Management">
-        <p className="mb-2">{data.events?.length || 0} Total Events</p>
+      <DashboardCard title="Event Management">
+        <p className="mb-2">{data.events?.length || 0} Events Total</p>
         <Link to="/organizer/events" className="text-blue-600 hover:underline">
           Manage Events
         </Link>
       </DashboardCard>
       
       <DashboardCard title="Venue Management">
-        <p className="mb-2">{data.venues?.length || 0} Available Venues</p>
+        <p className="mb-2">{data.venues?.length || 0} Venues Available</p>
         <Link to="/organizer/venues" className="text-blue-600 hover:underline">
           Manage Venues
         </Link>
       </DashboardCard>
       
-      <DashboardCard title="Judge Assignment">
-        <Link to="/organizer/judges" className="text-blue-600 hover:underline">
-          Assign Judges
-        </Link>
-      </DashboardCard>
-      
-      <DashboardCard title="Finance Management">
+      <DashboardCard title="Finance">
         <Link to="/organizer/finance" className="text-blue-600 hover:underline">
-          Financial Reports & Analytics
+          Financial Dashboard
         </Link>
       </DashboardCard>
       
-      <DashboardCard title="Schedule Management">
-        <Link to="/organizer/schedule" className="text-blue-600 hover:underline">
-          Manage Event Schedule
+      <DashboardCard title="Accommodation Management">
+        <Link to="/organizer/accommodation" className="text-blue-600 hover:underline">
+          Manage Accommodations
         </Link>
       </DashboardCard>
     </div>
