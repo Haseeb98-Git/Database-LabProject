@@ -268,6 +268,83 @@ app.get('/api/venues/:id', (req, res) => {
   });
 });
 
+// Create a new venue
+app.post('/api/venues', (req, res) => {
+  const { VenueName, Capacity, Location, AvailabilityStatus } = req.body;
+  
+  if (!VenueName) {
+    return res.status(400).json({ error: 'Venue name is required' });
+  }
+  
+  const query = 'INSERT INTO Venue (VenueName, Capacity, Location, AvailabilityStatus) VALUES (?, ?, ?, ?)';
+  db.query(query, [VenueName, Capacity, Location, AvailabilityStatus], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Fetch the created venue
+    db.query('SELECT * FROM Venue WHERE VenueID = ?', [result.insertId], (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(201).json(results[0]);
+    });
+  });
+});
+
+// Update a venue
+app.put('/api/venues/:id', (req, res) => {
+  const venueId = req.params.id;
+  const { VenueName, Capacity, Location, AvailabilityStatus } = req.body;
+  
+  if (!VenueName) {
+    return res.status(400).json({ error: 'Venue name is required' });
+  }
+  
+  const query = 'UPDATE Venue SET VenueName = ?, Capacity = ?, Location = ?, AvailabilityStatus = ? WHERE VenueID = ?';
+  db.query(query, [VenueName, Capacity, Location, AvailabilityStatus, venueId], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+    
+    res.json({ message: 'Venue updated successfully', venueId });
+  });
+});
+
+// Delete a venue
+app.delete('/api/venues/:id', (req, res) => {
+  const venueId = req.params.id;
+  
+  // First check if venue is being used in any events
+  db.query('SELECT COUNT(*) as count FROM Event WHERE VenueID = ?', [venueId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (results[0].count > 0) {
+      return res.status(400).json({ error: 'Cannot delete venue that is assigned to events' });
+    }
+    
+    // If not in use, proceed with deletion
+    const query = 'DELETE FROM Venue WHERE VenueID = ?';
+    db.query(query, [venueId], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Venue not found' });
+      }
+      
+      res.json({ message: 'Venue deleted successfully' });
+    });
+  });
+});
+
 // Check venue availability at a specific datetime
 app.get('/api/venues/:id/availability', (req, res) => {
   const venueId = req.params.id;
@@ -297,24 +374,51 @@ app.get('/api/venues/:id/availability', (req, res) => {
   });
 });
 
-// Create a new venue
-app.post('/api/venues', (req, res) => {
-  const { VenueName, Capacity, Location } = req.body;
+// Get venue schedules
+app.get('/api/venues/schedules', (req, res) => {
+  const query = `
+    SELECT 
+      e.EventID,
+      e.EventName,
+      e.EventType,
+      e.EventDateTime,
+      v.VenueID,
+      v.VenueName
+    FROM Event e
+    JOIN Venue v ON e.VenueID = v.VenueID
+    WHERE e.EventDateTime >= CURRENT_DATE
+    ORDER BY e.EventDateTime ASC
+  `;
   
-  if (!VenueName) {
-    return res.status(400).json({ error: 'Venue name is required' });
-  }
-  
-  const query = 'INSERT INTO Venue (VenueName, Capacity, Location, AvailabilityStatus) VALUES (?, ?, ?, TRUE)';
-  db.query(query, [VenueName, Capacity, Location], (err, result) => {
+  db.query(query, (err, results) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    
-    res.status(201).json({ 
-      message: 'Venue created successfully', 
-      venueId: result.insertId 
-    });
+    res.json(results);
+  });
+});
+
+// Get venue utilization statistics
+app.get('/api/venues/utilization', (req, res) => {
+  const query = `
+    SELECT 
+      COUNT(DISTINCT v.VenueID) as totalVenues,
+      COUNT(DISTINCT e.EventID) as totalEvents,
+      ROUND(
+        (COUNT(DISTINCT e.EventID) / (COUNT(DISTINCT v.VenueID) * 30)) * 100,
+        2
+      ) as averageUtilization
+    FROM Venue v
+    LEFT JOIN Event e ON v.VenueID = e.VenueID
+    WHERE e.EventDateTime >= CURRENT_DATE
+    AND e.EventDateTime <= DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY)
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results[0]);
   });
 });
 
@@ -1592,6 +1696,151 @@ app.get('/api/sponsorship/statistics', (req, res) => {
     };
     
     res.json(totalStats);
+  });
+});
+
+// Get sponsorship trends over time
+app.get('/api/sponsorship/reports/trends', (req, res) => {
+  const { period = 'monthly' } = req.query;
+  
+  let dateFormat, groupBy;
+  switch(period) {
+    case 'weekly':
+      dateFormat = '%Y-%u';
+      groupBy = 'WEEK(p.PaymentDate)';
+      break;
+    case 'monthly':
+      dateFormat = '%Y-%m';
+      groupBy = 'MONTH(p.PaymentDate)';
+      break;
+    case 'yearly':
+      dateFormat = '%Y';
+      groupBy = 'YEAR(p.PaymentDate)';
+      break;
+    default:
+      dateFormat = '%Y-%m';
+      groupBy = 'MONTH(p.PaymentDate)';
+  }
+
+  const query = `
+    SELECT 
+      DATE_FORMAT(p.PaymentDate, ?) as period,
+      COUNT(DISTINCT s.SponsorshipID) as totalContracts,
+      SUM(p.AmountPaid) as totalAmount,
+      COUNT(DISTINCT s.SponsorID) as uniqueSponsors
+    FROM Payment p
+    JOIN Sponsorship s ON p.SponsorshipID = s.SponsorshipID
+    GROUP BY ${groupBy}
+    ORDER BY p.PaymentDate DESC
+  `;
+
+  db.query(query, [dateFormat], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get sponsorship package distribution
+app.get('/api/sponsorship/reports/packages', (req, res) => {
+  const query = `
+    SELECT 
+      s.SponsorshipType,
+      COUNT(*) as totalContracts,
+      SUM(s.AmountPaid) as totalAmount,
+      AVG(s.AmountPaid) as averageAmount,
+      COUNT(DISTINCT s.SponsorID) as uniqueSponsors,
+      MIN(s.AmountPaid) as minAmount,
+      MAX(s.AmountPaid) as maxAmount
+    FROM Sponsorship s
+    GROUP BY s.SponsorshipType
+    ORDER BY totalAmount DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get payment status report
+app.get('/api/sponsorship/reports/payments', (req, res) => {
+  const query = `
+    SELECT 
+      s.SponsorshipID,
+      u.FullName as SponsorName,
+      s.SponsorshipType,
+      s.AmountPaid as ContractAmount,
+      COALESCE(SUM(p.AmountPaid), 0) as AmountPaid,
+      s.AmountPaid - COALESCE(SUM(p.AmountPaid), 0) as RemainingAmount,
+      CASE 
+        WHEN COALESCE(SUM(p.AmountPaid), 0) >= s.AmountPaid THEN 'Paid'
+        WHEN COALESCE(SUM(p.AmountPaid), 0) > 0 THEN 'Partial'
+        ELSE 'Unpaid'
+      END as PaymentStatus
+    FROM Sponsorship s
+    JOIN User u ON s.SponsorID = u.UserID
+    LEFT JOIN Payment p ON s.SponsorshipID = p.SponsorshipID
+    GROUP BY s.SponsorshipID, u.FullName, s.SponsorshipType, s.AmountPaid
+    ORDER BY PaymentStatus, s.SponsorshipID DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get branding opportunities utilization
+app.get('/api/sponsorship/reports/branding', (req, res) => {
+  const query = `
+    SELECT 
+      s.SponsorshipType,
+      COUNT(*) as totalContracts,
+      COUNT(CASE WHEN s.BrandingOpportunities IS NOT NULL AND s.BrandingOpportunities != '' THEN 1 END) as contractsWithBranding,
+      COUNT(CASE WHEN s.BrandingOpportunities IS NULL OR s.BrandingOpportunities = '' THEN 1 END) as contractsWithoutBranding,
+      ROUND(COUNT(CASE WHEN s.BrandingOpportunities IS NOT NULL AND s.BrandingOpportunities != '' THEN 1 END) * 100.0 / COUNT(*), 2) as brandingUtilizationPercentage
+    FROM Sponsorship s
+    GROUP BY s.SponsorshipType
+    ORDER BY s.SponsorshipType
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get sponsor engagement metrics
+app.get('/api/sponsorship/reports/engagement', (req, res) => {
+  const query = `
+    SELECT 
+      u.UserID,
+      u.FullName as SponsorName,
+      COUNT(s.SponsorshipID) as totalContracts,
+      SUM(s.AmountPaid) as totalInvestment,
+      COUNT(DISTINCT s.SponsorshipType) as differentPackageTypes,
+      MIN(s.AmountPaid) as smallestContract,
+      MAX(s.AmountPaid) as largestContract,
+      AVG(s.AmountPaid) as averageContractValue
+    FROM User u
+    JOIN Sponsorship s ON u.UserID = s.SponsorID
+    GROUP BY u.UserID, u.FullName
+    ORDER BY totalInvestment DESC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
   });
 });
 

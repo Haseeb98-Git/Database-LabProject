@@ -19,6 +19,7 @@ import EventLeaderboard from './pages/EventLeaderboard';
 import EventParticipants from './pages/EventParticipants';
 import SponsorshipPackages from "./pages/SponsorshipPackages";
 import SponsorshipContracts from "./pages/SponsorshipContracts";
+import VenueManagement from "./pages/VenueManagement";
 
 const App = () => {
   return (
@@ -56,6 +57,12 @@ const App = () => {
         {/* Sponsorship Management */}
         <Route path="/sponsor/packages" element={<SponsorshipPackages />} />
         <Route path="/sponsor/contracts" element={<SponsorshipContracts />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/venues" element={<VenueManagement />} />
+        
+        {/* Organizer Routes */}
+        <Route path="/organizer/venues" element={<VenueManagement />} />
         
         {/* Add other routes here */}
       </Routes>

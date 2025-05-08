@@ -69,24 +69,44 @@ const FinanceManagement = () => {
     setError("");
     
     try {
-      let url = `http://localhost:5000/api/finance/reports/${reportType}`;
-      
-      // Add date range parameters if needed
-      if (dateRange === "custom" && customDateRange.startDate && customDateRange.endDate) {
-        url += `?startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
-      } else if (dateRange !== "all") {
-        url += `?period=${dateRange}`;
+      let url;
+      if (reportType === "sponsorships") {
+        // For sponsorships, we'll fetch all sponsorship reports
+        const [packagesRes, paymentsRes, brandingRes] = await Promise.all([
+          fetch("http://localhost:5000/api/sponsorship/reports/packages"),
+          fetch("http://localhost:5000/api/sponsorship/reports/payments"),
+          fetch("http://localhost:5000/api/sponsorship/reports/branding")
+        ]);
+
+        if (!packagesRes.ok || !paymentsRes.ok || !brandingRes.ok) {
+          throw new Error("Failed to fetch sponsorship reports");
+        }
+
+        const packages = await packagesRes.json();
+        const payments = await paymentsRes.json();
+        const branding = await brandingRes.json();
+
+        setReportData({ packages, payments, branding });
+      } else {
+        // For other report types
+        url = `http://localhost:5000/api/finance/reports/${reportType}`;
+        
+        // Add date range parameters if needed
+        if (dateRange === "custom" && customDateRange.startDate && customDateRange.endDate) {
+          url += `?startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
+        } else if (dateRange !== "all") {
+          url += `?period=${dateRange}`;
+        }
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to generate ${reportType} report`);
+        }
+        
+        const data = await response.json();
+        setReportData(data);
       }
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to generate ${reportType} report`);
-      }
-      
-      const data = await response.json();
-      setReportData(data);
-      
     } catch (error) {
       console.error("Error generating report:", error);
       setError(error.message);
@@ -198,34 +218,103 @@ const FinanceManagement = () => {
         
       case "sponsorships":
         return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr className="bg-blue-600 text-white">
-                  <th className="py-2 px-4 text-left">Sponsor Name</th>
-                  <th className="py-2 px-4 text-left">Sponsorship Type</th>
-                  <th className="py-2 px-4 text-right">Amount Paid</th>
-                  <th className="py-2 px-4 text-left">Payment Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.map((sponsor, index) => (
-                  <tr key={index} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-4">{sponsor.SponsorName}</td>
-                    <td className="py-2 px-4">{sponsor.SponsorshipType}</td>
-                    <td className="py-2 px-4 text-right">{formatCurrency(sponsor.AmountPaid)}</td>
-                    <td className="py-2 px-4">{new Date(sponsor.PaymentDate).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-                <tr className="font-bold bg-gray-100">
-                  <td colSpan="2" className="py-2 px-4">Total</td>
-                  <td className="py-2 px-4 text-right">
-                    {formatCurrency(reportData.reduce((sum, sponsor) => sum + parseFloat(sponsor.AmountPaid), 0))}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="space-y-8">
+            {/* Package Distribution */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Sponsorship Package Distribution</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="py-2 px-4 text-left">Package Type</th>
+                      <th className="py-2 px-4 text-right">Total Contracts</th>
+                      <th className="py-2 px-4 text-right">Total Amount</th>
+                      <th className="py-2 px-4 text-right">Average Amount</th>
+                      <th className="py-2 px-4 text-right">Unique Sponsors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.packages?.map((pkg, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-4">{pkg.SponsorshipType}</td>
+                        <td className="py-2 px-4 text-right">{pkg.totalContracts}</td>
+                        <td className="py-2 px-4 text-right">{formatCurrency(pkg.totalAmount)}</td>
+                        <td className="py-2 px-4 text-right">{formatCurrency(pkg.averageAmount)}</td>
+                        <td className="py-2 px-4 text-right">{pkg.uniqueSponsors}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Payment Status */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Payment Status</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="py-2 px-4 text-left">Sponsor</th>
+                      <th className="py-2 px-4 text-left">Type</th>
+                      <th className="py-2 px-4 text-right">Contract Amount</th>
+                      <th className="py-2 px-4 text-right">Amount Paid</th>
+                      <th className="py-2 px-4 text-right">Remaining</th>
+                      <th className="py-2 px-4 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.payments?.map((payment, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-4">{payment.SponsorName}</td>
+                        <td className="py-2 px-4">{payment.SponsorshipType}</td>
+                        <td className="py-2 px-4 text-right">{formatCurrency(payment.ContractAmount)}</td>
+                        <td className="py-2 px-4 text-right">{formatCurrency(payment.AmountPaid)}</td>
+                        <td className="py-2 px-4 text-right">{formatCurrency(payment.RemainingAmount)}</td>
+                        <td className="py-2 px-4 text-center">
+                          <span className={`px-2 py-1 rounded-full text-sm ${
+                            payment.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                            payment.PaymentStatus === 'Partial' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {payment.PaymentStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Branding Utilization */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Branding Opportunities Utilization</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="py-2 px-4 text-left">Package Type</th>
+                      <th className="py-2 px-4 text-right">Total Contracts</th>
+                      <th className="py-2 px-4 text-right">With Branding</th>
+                      <th className="py-2 px-4 text-right">Without Branding</th>
+                      <th className="py-2 px-4 text-right">Utilization %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.branding?.map((item, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-4">{item.SponsorshipType}</td>
+                        <td className="py-2 px-4 text-right">{item.totalContracts}</td>
+                        <td className="py-2 px-4 text-right">{item.contractsWithBranding}</td>
+                        <td className="py-2 px-4 text-right">{item.contractsWithoutBranding}</td>
+                        <td className="py-2 px-4 text-right">{item.brandingUtilizationPercentage}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         );
         
