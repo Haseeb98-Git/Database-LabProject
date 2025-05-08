@@ -1422,6 +1422,179 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// ==== SPONSORSHIP MANAGEMENT ====
+
+// Get all sponsorship packages
+app.get('/api/sponsorship/packages', (req, res) => {
+  const packages = [
+    {
+      type: 'Title',
+      benefits: [
+        'Logo placement on all event materials',
+        'Keynote speaking opportunity',
+        'Exclusive branding rights',
+        'VIP access to all events'
+      ],
+      minAmount: 100000
+    },
+    {
+      type: 'Gold',
+      benefits: [
+        'Logo placement on main event materials',
+        'Speaking opportunity at main events',
+        'Premium branding rights',
+        'Access to all events'
+      ],
+      minAmount: 50000
+    },
+    {
+      type: 'Silver',
+      benefits: [
+        'Logo placement on selected materials',
+        'Booth space at the event',
+        'Standard branding rights',
+        'Access to main events'
+      ],
+      minAmount: 25000
+    },
+    {
+      type: 'Media Partner',
+      benefits: [
+        'Media coverage rights',
+        'Press pass for all events',
+        'Social media promotion',
+        'Access to event content'
+      ],
+      minAmount: 15000
+    }
+  ];
+  res.json(packages);
+});
+
+// Create a new sponsorship contract
+app.post('/api/sponsorship/contracts', (req, res) => {
+  const { SponsorID, SponsorshipType, ContractDetails, AmountPaid, BrandingOpportunities } = req.body;
+  
+  if (!SponsorID || !SponsorshipType || !ContractDetails || !AmountPaid) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  const query = `
+    INSERT INTO Sponsorship 
+    (SponsorID, SponsorshipType, ContractDetails, AmountPaid, BrandingOpportunities) 
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  
+  db.query(query, [SponsorID, SponsorshipType, ContractDetails, AmountPaid, BrandingOpportunities], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    // Create payment record
+    const paymentQuery = `
+      INSERT INTO Payment 
+      (UserID, SponsorshipID, AmountPaid, PaymentMethod) 
+      VALUES (?, ?, ?, 'Online')
+    `;
+    
+    db.query(paymentQuery, [SponsorID, result.insertId, AmountPaid], (err) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.status(201).json({ 
+        message: 'Sponsorship contract created successfully',
+        contractId: result.insertId
+      });
+    });
+  });
+});
+
+// Get all sponsorship contracts
+app.get('/api/sponsorship/contracts', (req, res) => {
+  const query = `
+    SELECT s.*, u.FullName as SponsorName, u.Email as SponsorEmail
+    FROM Sponsorship s
+    JOIN User u ON s.SponsorID = u.UserID
+    ORDER BY s.SponsorshipID DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get sponsorship contracts for a specific sponsor
+app.get('/api/sponsorship/contracts/:sponsorId', (req, res) => {
+  const query = `
+    SELECT s.*, u.FullName as SponsorName, u.Email as SponsorEmail
+    FROM Sponsorship s
+    JOIN User u ON s.SponsorID = u.UserID
+    WHERE s.SponsorID = ?
+    ORDER BY s.SponsorshipID DESC
+  `;
+  
+  db.query(query, [req.params.sponsorId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Update branding opportunities
+app.put('/api/sponsorship/contracts/:contractId/branding', (req, res) => {
+  const { BrandingOpportunities } = req.body;
+  
+  const query = `
+    UPDATE Sponsorship 
+    SET BrandingOpportunities = ?
+    WHERE SponsorshipID = ?
+  `;
+  
+  db.query(query, [BrandingOpportunities, req.params.contractId], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+    
+    res.json({ message: 'Branding opportunities updated successfully' });
+  });
+});
+
+// Get sponsorship statistics
+app.get('/api/sponsorship/statistics', (req, res) => {
+  const query = `
+    SELECT 
+      SponsorshipType,
+      COUNT(*) as totalContracts,
+      SUM(AmountPaid) as totalAmount,
+      AVG(AmountPaid) as averageAmount
+    FROM Sponsorship
+    GROUP BY SponsorshipType
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    const totalStats = {
+      totalContracts: results.reduce((sum, row) => sum + row.totalContracts, 0),
+      totalAmount: results.reduce((sum, row) => sum + parseFloat(row.totalAmount), 0),
+      byType: results
+    };
+    
+    res.json(totalStats);
+  });
+});
+
 // Start the server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

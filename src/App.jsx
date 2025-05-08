@@ -17,6 +17,8 @@ import JudgeAssignment from './pages/JudgeAssignment';
 import ScoreEntry from './pages/ScoreEntry';
 import EventLeaderboard from './pages/EventLeaderboard';
 import EventParticipants from './pages/EventParticipants';
+import SponsorshipPackages from "./pages/SponsorshipPackages";
+import SponsorshipContracts from "./pages/SponsorshipContracts";
 
 const App = () => {
   return (
@@ -50,6 +52,10 @@ const App = () => {
         <Route path="/judge/score-entry" element={<ScoreEntry />} />
         <Route path="/events/:eventId/leaderboard" element={<EventLeaderboard />} />
         <Route path="/events/:eventId/participants" element={<EventParticipants />} />
+        
+        {/* Sponsorship Management */}
+        <Route path="/sponsor/packages" element={<SponsorshipPackages />} />
+        <Route path="/sponsor/contracts" element={<SponsorshipContracts />} />
         
         {/* Add other routes here */}
       </Routes>
