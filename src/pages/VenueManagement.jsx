@@ -21,33 +21,51 @@ const VenueManagement = () => {
 
   useEffect(() => {
     // Check if user is logged in and authorized
-    const user = JSON.parse(localStorage.getItem("nasconUser"));
-    
-    if (!user || (user.userType !== 'Admin' && user.userType !== 'Organizer')) {
+    try {
+      const user = JSON.parse(localStorage.getItem("nasconUser"));
+      if (!user) {
+        throw new Error("No user data found");
+      }
+      
+      const { userType } = user;
+      if (userType !== 'Admin' && userType !== 'Organizer') {
+        throw new Error("Unauthorized access");
+      }
+      
+      setUserData(user);
+      loadVenueData();
+    } catch (error) {
+      console.error("Authentication error:", error);
       alert("Unauthorized access. Redirecting to login.");
       navigate("/login");
-      return;
     }
-    
-    setUserData(user);
-    loadVenueData();
   }, [navigate]);
 
   const loadVenueData = async () => {
     setLoading(true);
+    setError("");
     try {
       // Fetch venues
       const venuesResponse = await fetch("http://localhost:5000/api/venues");
+      if (!venuesResponse.ok) {
+        throw new Error(`Failed to fetch venues: ${venuesResponse.statusText}`);
+      }
       const venuesData = await venuesResponse.json();
       setVenues(venuesData);
       
       // Fetch venue schedules
       const scheduleResponse = await fetch("http://localhost:5000/api/venues/schedules");
+      if (!scheduleResponse.ok) {
+        throw new Error(`Failed to fetch schedules: ${scheduleResponse.statusText}`);
+      }
       const scheduleData = await scheduleResponse.json();
-      setScheduleData(scheduleData);
+      setScheduleData(scheduleData || []); // Ensure it's always an array
       
       // Fetch venue utilization
       const utilizationResponse = await fetch("http://localhost:5000/api/venues/utilization");
+      if (!utilizationResponse.ok) {
+        throw new Error(`Failed to fetch utilization: ${utilizationResponse.statusText}`);
+      }
       const utilizationData = await utilizationResponse.json();
       setUtilizationData(utilizationData);
     } catch (error) {

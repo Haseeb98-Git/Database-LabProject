@@ -242,6 +242,54 @@ app.get('/api/events/:id/judges', (req, res) => {
 
 // ==== VENUE MANAGEMENT ====
 
+// Get venue schedules
+app.get('/api/venues/schedules', (req, res) => {
+  const query = `
+    SELECT 
+      e.EventID,
+      e.EventName,
+      e.EventType,
+      e.EventDateTime,
+      v.VenueID,
+      v.VenueName
+    FROM Event e
+    JOIN Venue v ON e.VenueID = v.VenueID
+    WHERE e.EventDateTime >= CURRENT_DATE
+    ORDER BY e.EventDateTime ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Get venue utilization statistics
+app.get('/api/venues/utilization', (req, res) => {
+  const query = `
+    SELECT 
+      COUNT(DISTINCT v.VenueID) as totalVenues,
+      COUNT(DISTINCT e.EventID) as totalEvents,
+      ROUND(
+        (COUNT(DISTINCT e.EventID) / (COUNT(DISTINCT v.VenueID) * 30)) * 100,
+        2
+      ) as averageUtilization
+    FROM Venue v
+    LEFT JOIN Event e ON v.VenueID = e.VenueID
+    WHERE e.EventDateTime >= CURRENT_DATE
+    AND e.EventDateTime <= DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY)
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results[0]);
+  });
+});
+
 // Get all venues
 app.get('/api/venues', (req, res) => {
   const query = 'SELECT * FROM Venue';
@@ -371,54 +419,6 @@ app.get('/api/venues/:id/availability', (req, res) => {
     }
     
     res.json({ isAvailable: true });
-  });
-});
-
-// Get venue schedules
-app.get('/api/venues/schedules', (req, res) => {
-  const query = `
-    SELECT 
-      e.EventID,
-      e.EventName,
-      e.EventType,
-      e.EventDateTime,
-      v.VenueID,
-      v.VenueName
-    FROM Event e
-    JOIN Venue v ON e.VenueID = v.VenueID
-    WHERE e.EventDateTime >= CURRENT_DATE
-    ORDER BY e.EventDateTime ASC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(results);
-  });
-});
-
-// Get venue utilization statistics
-app.get('/api/venues/utilization', (req, res) => {
-  const query = `
-    SELECT 
-      COUNT(DISTINCT v.VenueID) as totalVenues,
-      COUNT(DISTINCT e.EventID) as totalEvents,
-      ROUND(
-        (COUNT(DISTINCT e.EventID) / (COUNT(DISTINCT v.VenueID) * 30)) * 100,
-        2
-      ) as averageUtilization
-    FROM Venue v
-    LEFT JOIN Event e ON v.VenueID = e.VenueID
-    WHERE e.EventDateTime >= CURRENT_DATE
-    AND e.EventDateTime <= DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY)
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json(results[0]);
   });
 });
 
