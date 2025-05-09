@@ -44,47 +44,17 @@ db.connect((err) => {
         console.error('Error initializing stored procedures:', err);
       } else {
         console.log('Stored procedures and triggers initialization complete');
+        
+        // Ensure event scheduler is running
+        db.query('CALL EnsureEventSchedulerRunning()', (err) => {
+          if (err) {
+            console.error('Error ensuring event scheduler is running:', err);
+          } else {
+            console.log('Event scheduler is running');
+          }
+        });
       }
     });
-    
-    // Set up daily schedule to run event reminders procedure
-    // This runs the procedure once when the server starts and then daily at midnight
-    const runEventReminders = () => {
-      db.query('CALL GenerateEventReminders()', (err, results) => {
-        if (err) {
-          console.error('Failed to run event reminders:', err);
-        } else {
-          console.log('Event reminders generated successfully');
-        }
-      });
-    };
-    
-    // Run once at startup
-    runEventReminders();
-    
-    // Schedule to run daily at midnight
-    const scheduleReminders = () => {
-      const now = new Date();
-      const night = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1, // tomorrow
-        0, 0, 0 // at 00:00:00
-      );
-      const msUntilMidnight = night.getTime() - now.getTime();
-      
-      // Schedule first run at next midnight
-      setTimeout(() => {
-        runEventReminders();
-        
-        // Then schedule to run every 24 hours
-        setInterval(runEventReminders, 24 * 60 * 60 * 1000);
-      }, msUntilMidnight);
-      
-      console.log(`Scheduled reminder generation to run in ${Math.round(msUntilMidnight / 1000 / 60)} minutes`);
-    };
-    
-    scheduleReminders();
   } else {
     console.log('No stored procedures file found');
   }
@@ -578,11 +548,9 @@ app.get('/api/users/:id/registrations', (req, res) => {
 app.get('/api/events/:id/registrations', (req, res) => {
   const eventId = req.params.id;
   const query = `
-    SELECT r.*, u.FullName, u.Email, u.PhoneNumber
-    FROM Registration r
-    JOIN User u ON r.UserID = u.UserID
-    WHERE r.EventID = ?
-    ORDER BY r.RegistrationDate DESC
+    SELECT *
+    FROM ParticipantListView
+    WHERE EventID = ?
   `;
   
   db.query(query, [eventId], (err, results) => {

@@ -103,9 +103,11 @@ CREATE TABLE IF NOT EXISTS EventReminders (
 );
 
 -- Event Scheduler to send reminders for event participation
--- Instead of using CREATE EVENT directly, we'll create a stored procedure that handles the reminder logic
-DROP PROCEDURE IF EXISTS GenerateEventReminders;
-CREATE PROCEDURE GenerateEventReminders()
+DROP EVENT IF EXISTS daily_event_reminders;
+CREATE EVENT daily_event_reminders
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY
+DO
 BEGIN
     -- Insert reminders for events happening in the next 24 hours
     INSERT INTO EventReminders (UserID, EventID, Message)
@@ -118,6 +120,9 @@ BEGIN
     JOIN Event e ON r.EventID = e.EventID
     WHERE DATE(e.EventDateTime) = DATE_ADD(CURRENT_DATE, INTERVAL 1 DAY);
 END;
+
+-- Enable the event scheduler
+SET GLOBAL event_scheduler = ON;
 
 -- View for participant lists
 CREATE OR REPLACE VIEW ParticipantListView AS
